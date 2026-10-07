@@ -1,0 +1,10 @@
+package com.aclibrary.library;
+import org.springframework.web.bind.annotation.*; import org.springframework.http.*; import java.time.LocalDateTime; import java.util.*;
+@RestController @RequestMapping("/api/requests") public class RequestController{
+ private final BookRequestRepository repo; private final BookRepository books; private final UserRepository users; RequestController(BookRequestRepository r,BookRepository b,UserRepository u){repo=r;books=b;users=u;}
+ private Map<String,Object> dto(BookRequest r){return Map.of("id",r.getId(),"bookId",r.getBook().getId(),"bookTitle",r.getBook().getTitle(),"studentId",r.getStudent().getId(),"studentName",r.getStudent().getName(),"status",r.getStatus().name(),"requestedAt",r.getRequestedAt());}
+ @GetMapping public List<Map<String,Object>> all(){return repo.findAll().stream().map(this::dto).toList();}
+ @PostMapping public ResponseEntity<?> create(@RequestBody Map<String,Object> p){try{Book b=books.findById(Long.valueOf(p.get("bookId").toString())).orElseThrow();User u=users.findById(Long.valueOf(p.get("studentId").toString())).orElseThrow();if(b.getAvailableCopies()<1)return ResponseEntity.badRequest().body(Map.of("message","Book is not available"));BookRequest r=new BookRequest();r.setBook(b);r.setStudent(u);r.setStatus(RequestStatus.PENDING);r.setRequestedAt(LocalDateTime.now());return ResponseEntity.ok(dto(repo.save(r)));}catch(Exception e){return ResponseEntity.badRequest().body(Map.of("message","Invalid book or student"));}}
+ @PutMapping("/{id}") public ResponseEntity<?> update(@PathVariable Long id,@RequestBody Map<String,Object> p){return repo.findById(id).map(r->{if(p.containsKey("status"))r.setStatus(RequestStatus.valueOf(p.get("status").toString()));return ResponseEntity.ok(dto(repo.save(r)));}).orElse(ResponseEntity.notFound().build());}
+ @DeleteMapping("/{id}") public ResponseEntity<Void> delete(@PathVariable Long id){if(!repo.existsById(id))return ResponseEntity.notFound().build();repo.deleteById(id);return ResponseEntity.noContent().build();}
+}

@@ -1,0 +1,10 @@
+package com.aclibrary.library;
+import org.springframework.web.bind.annotation.*; import org.springframework.http.*; import java.util.*;
+@RestController @RequestMapping("/api/fines") public class FineController{
+ private final FineRepository repo; private final UserRepository users; private final BookRepository books; FineController(FineRepository r,UserRepository u,BookRepository b){repo=r;users=u;books=b;}
+ private Map<String,Object> dto(Fine f){return Map.of("id",f.getId(),"studentId",f.getStudent().getId(),"studentName",f.getStudent().getName(),"bookId",f.getBook().getId(),"bookTitle",f.getBook().getTitle(),"overdueDays",f.getOverdueDays(),"amount",f.getAmount(),"status",f.getStatus().name());}
+ @GetMapping public List<Map<String,Object>> all(){return repo.findAll().stream().map(this::dto).toList();}
+ @PostMapping public ResponseEntity<?> create(@RequestBody Map<String,Object> p){try{User u=users.findById(Long.valueOf(p.get("studentId").toString())).orElseThrow();Book b=books.findById(Long.valueOf(p.get("bookId").toString())).orElseThrow();Fine f=new Fine();f.setStudent(u);f.setBook(b);f.setOverdueDays(Integer.parseInt(p.get("overdueDays").toString()));f.setAmount(Double.parseDouble(p.get("amount").toString()));f.setStatus(FineStatus.PENDING);return ResponseEntity.ok(dto(repo.save(f)));}catch(Exception e){return ResponseEntity.badRequest().body(Map.of("message","Invalid fine details"));}}
+ @PutMapping("/{id}") public ResponseEntity<?> update(@PathVariable Long id,@RequestBody Map<String,Object> p){return repo.findById(id).map(f->{if(p.get("status")!=null)f.setStatus(FineStatus.valueOf(p.get("status").toString()));if(p.get("amount")!=null)f.setAmount(Double.parseDouble(p.get("amount").toString()));return ResponseEntity.ok(dto(repo.save(f)));}).orElse(ResponseEntity.notFound().build());}
+ @DeleteMapping("/{id}") public ResponseEntity<Void> delete(@PathVariable Long id){if(!repo.existsById(id))return ResponseEntity.notFound().build();repo.deleteById(id);return ResponseEntity.noContent().build();}
+}

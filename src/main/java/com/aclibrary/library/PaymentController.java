@@ -1,0 +1,10 @@
+package com.aclibrary.library;
+import org.springframework.web.bind.annotation.*; import org.springframework.http.*; import java.time.LocalDateTime; import java.util.*;
+@RestController @RequestMapping("/api/payments") public class PaymentController{
+ private final PaymentRepository repo; private final FineRepository fines; PaymentController(PaymentRepository r,FineRepository f){repo=r;fines=f;}
+ private Map<String,Object> dto(Payment p){return Map.of("id",p.getId(),"fineId",p.getFine().getId(),"studentId",p.getStudent().getId(),"studentName",p.getStudent().getName(),"amount",p.getAmount(),"method",p.getMethod(),"reference",p.getReference(),"status",p.getStatus().name(),"paidAt",p.getPaidAt());}
+ @GetMapping public List<Map<String,Object>> all(){return repo.findAll().stream().map(this::dto).toList();}
+ @PostMapping public ResponseEntity<?> create(@RequestBody Map<String,Object> p){try{Fine f=fines.findById(Long.valueOf(p.get("fineId").toString())).orElseThrow();Payment x=new Payment();x.setFine(f);x.setStudent(f.getStudent());x.setAmount(f.getAmount());x.setMethod(p.get("method").toString());x.setReference(p.get("reference").toString());x.setStatus(PaymentStatus.SUCCESS);x.setPaidAt(LocalDateTime.now());f.setStatus(FineStatus.PAID);fines.save(f);return ResponseEntity.ok(dto(repo.save(x)));}catch(Exception e){return ResponseEntity.badRequest().body(Map.of("message","Invalid payment details"));}}
+ @PutMapping("/{id}") public ResponseEntity<?> update(@PathVariable Long id,@RequestBody Map<String,Object> p){return repo.findById(id).map(x->{if(p.get("status")!=null)x.setStatus(PaymentStatus.valueOf(p.get("status").toString()));if(p.get("reference")!=null)x.setReference(p.get("reference").toString());return ResponseEntity.ok(dto(repo.save(x)));}).orElse(ResponseEntity.notFound().build());}
+ @DeleteMapping("/{id}") public ResponseEntity<Void> delete(@PathVariable Long id){if(!repo.existsById(id))return ResponseEntity.notFound().build();repo.deleteById(id);return ResponseEntity.noContent().build();}
+}
